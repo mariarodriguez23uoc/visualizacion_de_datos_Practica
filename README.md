@@ -13,4 +13,6 @@ En este repositorio se ha creado una visualización, a partir de la base de dato
 - Playas_canarias.csv: dataset original
 - Playa_canarias_limpio.csv: dataset filtrado, limpio y preparado para la visualización.
 
+Datos fuente: «© Ministerio para la Transición Ecológica y el Reto Demográfico»
+
 
