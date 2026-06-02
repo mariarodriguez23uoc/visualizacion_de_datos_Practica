@@ -1,0 +1,745 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <title>Playas de Canarias</title>
+    <script src="https://d3js.org/d3.v7.min.js"></script>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script src="https://cdn.plot.ly/plotly-2.24.1.min.js"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Montserrat:wght=300;400;500;600;700&family=Pacifico&display=swap');
+
+        body { font-family: 'Montserrat', sans-serif; margin: 0; padding: 0; background: #fff; color: #222; overflow-x: hidden; }
+        
+        /* ===== EFECTO REVELADO SCROLL STORYTELLING MÁS LENTO Y SUAVE ===== */
+        .revelar {
+            opacity: 0;
+            transform: translateY(60px); /* Un poco más de desplazamiento para notar el movimiento lento */
+            transition: opacity 1.4s cubic-bezier(0.25, 1, 0.5, 1), transform 1.4s cubic-bezier(0.25, 1, 0.5, 1);
+            will-change: opacity, transform;
+        }
+        .revelar.visible { opacity: 1; transform: translateY(0); }
+
+        .delay-1 { transition-delay: 0.3s; }
+        .delay-2 { transition-delay: 0.5s; }
+
+        /* ===== HEADER ===== */
+        .cabecera-container {
+            background-color: #e3f2fd; min-height: 95vh; display: flex; flex-direction: column; justify-content: space-around; align-items: center; padding: 120px 40px; box-sizing: border-box;
+            margin-bottom: 250px; /* Separación masiva entre el Header y lo que viene después */
+        }
+        .cabecera-fila-superior { display: flex; gap: 60px; width: 100%; max-width: 1200px; flex-wrap: wrap; justify-content: center; align-items: center; }
+        .cabecera-textos { flex: 1; text-align: left; max-width: 800px; }
+        .cabecera-fila-superior h1 { font-family: 'Pacifico', cursive; font-size: 5.5em; color: #0d47a1; margin: 0 0 25px 0; line-height: 1.1; }
+        .cabecera-fila-superior .subtitulo { font-size: 2.8em; color: #1565c0; margin: 0; line-height: 1.3; font-weight: 300; letter-spacing: -0.5px; }
+        .cabecera-derecha img { max-width: 400px; width: 100%; height: auto; border: 8px solid #fdf3b7; border-radius: 24px; filter: drop-shadow(0 12px 20px rgba(13, 71, 161, 0.15)); }
+        
+        /* Contadores Header */
+        .contador-circulos { display: flex; gap: 50px; justify-content: center; width: 100%; margin-top: 40px; }
+        .circulo { 
+            width: 130px; height: 130px; background-color: #fdf3b7; border: 3px solid #0d47a1; border-radius: 50%; 
+            display: flex; flex-direction: column; justify-content: center; align-items: center; font-weight: bold;
+            transition: transform 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275); cursor: pointer;
+        }
+        .circulo:hover { transform: scale(1.15); }
+        .circulo .numero { font-size: 2.2em; color: #0d47a1; }
+        .circulo .texto { font-size: 1em; color: #444; font-weight: normal; }
+
+        .linea-separadora-unica { border: 0; height: 6px; background-color: #0d47a1; margin: 0; }
+        .bloque-interno-centrado { max-width: 1200px; margin: 0 auto; padding: 0 20px; box-sizing: border-box; }
+        .contenido-principal { max-width: 1200px; margin: 0 auto; padding: 40px 20px; box-sizing: border-box; }
+
+        /* ===== BLOQUE INTRODUCTORIO CON SEPARACIONES EXTREMAS ===== */
+        .bloque-seccion-completo-amarillo-continuo { 
+            background-color: #fffdeb; 
+            padding: 160px 0; 
+            margin: 0; 
+            width: 100vw; 
+            position: relative; 
+            left: 50%; 
+            right: 50%; 
+            margin-left: -50vw; 
+            margin-right: -50vw; 
+        }
+
+        .bloque-contexto-marino { padding: 40px 20px; margin-bottom: 250px; text-align: left; }
+        
+        /* Línea azul hiper-espaciada solicitada entre el contexto y la parte de todas las islas */
+        .separador-contexto-mapa {
+            margin: 250px 0; 
+        }
+
+        .contexto-titulo { font-size: 2.6em; font-weight: 700; color: #0d47a1; margin-top: 0; margin-bottom: 30px; text-align: center; }
+        .contexto-texto { font-size: 1.3em; line-height: 1.9; color: #333; margin-bottom: 40px; }
+        .lista-preguntas { list-style-type: none; padding-left: 0; margin: 0; }
+        .lista-preguntas li { font-size: 1.25em; font-weight: 500; color: #1565c0; margin-bottom: 20px; padding-left: 25px; position: relative; }
+        .lista-preguntas li::before { content: ">"; position: absolute; left: 0; color: #0d47a1; font-weight: 700; }
+
+        /* ===== MAQUETACIÓN DE RITMO MUCHO MÁS LENTO (MÁS SCROLLING) ===== */
+        .seccion-espaciada { margin: 400px 0; } /* Aumentado drásticamente para obligar a scrollear más lento */
+        .espacio-narrativo-medio { margin: 140px 0; }
+        .bloque-seccion-completo-amarillo { background-color: #fffde7; padding: 220px 0; margin: 400px 0; width: 100vw; position: relative; left: 50%; right: 50%; margin-left: -50vw; margin-right: -50vw; }
+        
+        .seccion-titulo { font-size: 2.6em; font-weight: 700; color: #0d47a1; margin-bottom: 25px; text-align: center; }
+        .seccion-texto-desc { font-size: 1.2em; color: #555; line-height: 1.7; margin-bottom: 50px; text-align: center; }
+
+        /* Lista de islas */
+        .lista-islas-tamano {
+            display: flex; flex-wrap: wrap; gap: 25px; align-items: center; justify-content: center; margin: 45px 0; padding: 20px; background: rgba(255, 255, 255, 0.6); border-radius: 12px;
+        }
+        .isla-item-dinamico { color: #0d47a1; font-weight: 700; white-space: nowrap; transition: transform 0.2s ease, opacity 0.2s ease; cursor: pointer; user-select: none; }
+        .isla-item-dinamico:hover { transform: scale(1.08); opacity: 0.85; }
+        .isla-item-dinamico.activo { color: #e67e22; transform: scale(1.05); }
+        .isla-item-dinamico span { font-weight: 400; color: #1565c0; font-size: 0.85em; margin-left: 4px; }
+
+        .mapa-leaflet { width: 100%; height: 560px; border-radius: 12px; box-shadow: 0 6px 20px rgba(0,0,0,0.06); }
+        .filtro-contenedor { display: flex; justify-content: center; align-items: center; gap: 10px; }
+        .filtro-contenedor select { padding: 12px 20px; border-radius: 6px; border: 1px solid #ccc; font-family: inherit; font-size: 1em; }
+
+        /* ===== BURBUJAS GIRATORIAS UNIFICADAS EN COLOR ===== */
+        .contenedor-pesos-variables { 
+            display: flex; flex-wrap: wrap; gap: 20px; margin: 50px 0 80px 0; align-items: center; justify-content: center; width: 100%;
+        }
+        
+        .burbuja-flip-container {
+            perspective: 1000px; width: 145px; height: 145px;
+        }
+        
+        .burbuja-flip-card {
+            width: 100%; height: 100%; position: relative; transform-style: preserve-3d; transition: transform 0.6s cubic-bezier(0.4, 0, 0.2, 1); cursor: pointer;
+        }
+        
+        .burbuja-flip-container:hover .burbuja-flip-card {
+            transform: rotateY(180deg);
+        }
+        
+        .burbuja-face {
+            position: absolute; width: 100%; height: 100%; backface-visibility: hidden; border-radius: 50%; display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; padding: 15px; box-sizing: border-box; box-shadow: 0 5px 12px rgba(0,0,0,0.1);
+        }
+        
+        .burbuja-front {
+            z-index: 2; transform: rotateY(0deg); background-color: #0d47a1; color: #fff; font-weight: 600;
+        }
+        .burbuja-front .porcentaje-num { font-size: 1.5em; font-weight: 700; display: block; margin-bottom: 2px; color: #fdf3b7; }
+        .burbuja-front span { font-size: 0.85em; line-height: 1.2; }
+        
+        .burbuja-back {
+            transform: rotateY(180deg); background-color: #222; color: #fff; font-size: 0.72em; font-weight: 400; line-height: 1.4; padding: 12px;
+        }
+
+        /* Bloques de Historias Libres (Anotaciones retrasadas al scroll) */
+        .bloque-grafico-solo { width: 100%; margin: 30px 0; }
+        .grafica-grande { width: 100%; height: 500px; }
+        
+        .contenedor-bloques-anotaciones { display: flex; justify-content: space-between; gap: 40px; margin: 100px 0 20px 0; width: 100%; }
+        .nota-flotante-borde { flex: 1; max-width: 46%; padding: 25px; font-size: 1.05em; line-height: 1.7; border-radius: 12px; box-sizing: border-box; background: #fdfdfd; border: 1px solid #e2e8f0; box-shadow: 0 4px 12px rgba(0,0,0,0.02); }
+        .nota-flotante-borde.izquierda { border-left: 5px solid #0d47a1; }
+        .nota-flotante-borde.right { border-right: 5px solid #1976d2; }
+        .nota-flotante-borde.para-izq { border-left: 5px solid #2e7d32; }
+        .nota-flotante-borde.para-der { border-right: 5px solid #4caf50; }
+
+        /* Matriz de Tipologías con bordes adaptados a los colores originales */
+        .grid-matriz-playas { display: grid; grid-template-columns: repeat(2, 1fr); gap: 28px; margin: 60px 0; }
+        .tarjeta-tipo-playa { background: #fff; padding: 28px; border-radius: 16px; border-left: 6px solid #0d47a1; box-shadow: 0 4px 18px rgba(0,0,0,0.04); transition: 0.3s; }
+        .tarjeta-tipo-playa:hover { transform: translateY(-6px); box-shadow: 0 10px 25px rgba(0,0,0,0.08); }
+        .contenedor-emotes { font-size: 1.9rem; margin-bottom: 12px; display: flex; gap: 10px; }
+        .tarjeta-tipo-playa h3 { color: #0d47a1; margin: 0 0 12px 0; font-size: 1.45em; }
+
+        /* Rankings */
+        .bloques-rankings-emparejados { display: flex; gap: 40px; flex-wrap: wrap; margin: 50px 0; width: 100%; }
+        .columna-ranking { flex: 1; min-width: 340px; }
+        .columna-ranking h3 { font-size: 1.4em; font-weight: 600; color: #0d47a1; margin: 0 0 25px 0; text-align: center; }
+        .ranking-secuencial-container { display: flex; flex-direction: column; gap: 16px; width: 100%; }
+        
+        .tarjeta-ranking-pro {
+            display: flex; align-items: center; gap: 15px; background: #ffffff; border: 1px solid #e0e0e0; border-radius: 10px; padding: 18px 22px; width: 100%; box-shadow: 0 2px 6px rgba(0,0,0,0.03); box-sizing: border-box;
+            opacity: 0; transform: translateY(15px); transition: opacity 0.5s ease-out, transform 0.5s ease-out;
+        }
+        .tarjeta-ranking-pro.visible-card { opacity: 1; transform: translateY(0); }
+        
+        .puesto-badge { font-size: 1.2em; font-weight: 700; color: #0d47a1; background: #e3f2fd; min-width: 38px; height: 38px; border-radius: 50%; display: flex; align-items: center; justify-content: center; }
+        .puesto-badge.alerta { color: #c62828; background: #ffebee; }
+        .puesto-badge.destacado { color: #2e7d32; background: #e8f5e9; }
+        .info-playa-bloque { flex: 1; }
+        .info-playa-bloque .nombre-playa { font-size: 1.2em; font-weight: 700; color: #111; margin: 0 0 4px 0; }
+        .info-playa-bloque .detalles-playa { font-size: 0.9em; color: #666; line-height: 1.4; }
+        .badge-indice-seguridad { font-size: 1.05em; color: #222; white-space: nowrap; }
+        .badge-indice-seguridad strong { font-weight: 700; color: #0d47a1; }
+        .badge-indice-seguridad strong.alerta-txt { color: #c62828; }
+        .badge-indice-seguridad strong.destacado-txt { color: #2e7d32; }
+
+        .mapa-plotly { width: 100%; height: 540px; margin: 30px 0; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 20px rgba(0,0,0,0.05); }
+        .pregunta-destacada-titulo { font-size: 2.2em; font-weight: 700; color: #0d47a1; margin-top: 60px; text-align: center; }
+        .pie-creditos { text-align: center; font-size: 0.82em; color: #8a8a8a; margin-top: 200px; padding: 30px; border-top: 1px solid #eee; font-style: italic; }
+
+        @media (max-width: 850px) {
+            .contenedor-bloques-anotaciones { flex-direction: column; }
+            .nota-flotante-borde { max-width: 100%; width: 100%; }
+            .bloques-rankings-emparejados, .grid-matriz-playas { flex-direction: column; }
+            .seccion-espaciada { margin: 250px 0; }
+        }
+    </style>
+</head>
+<body>
+
+<div class="cabecera-container">
+    <div class="cabecera-fila-superior">
+        <div class="cabecera-textos">
+            <h1>Exploración de las Playas de Canarias</h1>
+            <p class="subtitulo">Descubre tu rincón ideal en el litoral de las islas afortunadas.</p>
+        </div>
+        <div class="cabecera-derecha">
+            <img src="https://solo-h2o.com/wp-content/uploads/canary-islands.png" alt="Canarias">
+        </div>
+    </div>
+    <div class="contador-circulos">
+        <div class="circulo"><span class="numero">8</span><span class="texto">islas</span></div>
+        <div class="circulo"><span class="numero">561</span><span class="texto">playas</span></div>
+        <div class="circulo"><span class="numero">12</span><span class="texto">variables</span></div>
+    </div>
+</div>
+
+<hr class="linea-separadora-unica">
+
+<div class="bloque-seccion-completo-amarillo-continuo revelar">
+    
+<div class="bloque-contexto-marino revelar">
+    <div class="bloque-interno-centrado">
+        <h2 class="contexto-titulo">Canarias, la segunda comunidad con más playas de España</h2>
+        <p class="contexto-texto">Con <strong>561 playas</strong> repartidas entre 8 islas, Canarias ofrece una diversidad extraordinaria. Aquí podrás encontrar <strong>tus playas ideales</strong> según tus gustos y necesidades de manera objetiva observando las diferencias entre ellas, respondiendo a las siguientes preguntas:</p>
+        
+        <ul class="lista-preguntas">
+            <li>¿Cuáles son las playas <strong>más seguras</strong> para el baño del archipiélago?</li>
+            <li>¿Qué islas ofrecen los <strong>entornos más naturales</strong> y paradisiacos?</li>
+            <li>¿Cómo se <strong>agrupan nuestras costas</strong> según sus principales características?</li>
+        </ul> </div>
+</div>
+
+    <hr class="linea-separadora-unica separador-contexto-mapa">
+
+    <div class="bloque-interno-centrado revelar" style="margin-top: 80px;">
+        <h2 class="seccion-titulo">Todas las playas del archipiélago</h2>
+        <p class="seccion-texto-desc">Cada punto representa una playa del litoral de las islas, pudiendo observar las de una única isla también.</p>
+        
+        <div id="lista-islas-conteo" class="lista-islas-tamano"></div>
+
+        <div class="filtro-contenedor" style="margin-bottom: 30px; margin-top: 30px;">
+            <label for="filtro-isla" style="font-weight: 500;">Filtrar mapa por isla:</label>
+            <select id="filtro-isla">
+                <option value="">Todas</option><option>Tenerife</option><option>Gran Canaria</option><option>Fuerteventura</option><option>Lanzarote</option><option>La Palma</option><option>La Gomera</option><option>El Hierro</option>
+            </select>
+        </div>
+        <div id="mapa-general" class="mapa-leaflet"></div>
+    </div>
+</div>
+
+<div class="contenido-principal">
+
+    <div class="seccion-espaciada revelar">
+        <h2 class="seccion-titulo">¿Cuáles son las playas más seguras?</h2>
+        <p class="seccion-texto-desc">Para muchos usuarios es primordial visitar playas donde el baño sea seguro, haya socorristas o esté cercano a zonas de emergencia, en general, donde <strong>prime la seguridad</strong>. Valorando con distintos pesos diversas propiedades de cada playa se proporciona un <strong>Índice de Seguridad</strong> para averiguar cuales tienen mayor o menor riesgo.</p>
+        <div class="contenedor-pesos-variables revelar delay-1">
+            <div class="burbuja-flip-container">
+                <div class="burbuja-flip-card">
+                    <div class="burbuja-face burbuja-front"><span class="porcentaje-num">30%</span><span>Estado Mar</span></div>
+                    <div class="burbuja-face burbuja-back">La corriente y oleaje fuerte es una de las mayores causas de muerte en las islas.</div>
+                </div>
+            </div>
+            <div class="burbuja-flip-container">
+                <div class="burbuja-flip-card">
+                    <div class="burbuja-face burbuja-front"><span class="porcentaje-num">30%</span><span>Servicios Auxilio</span></div>
+                    <div class="burbuja-face burbuja-back">La acción temprana de los socorristas es primordial en casos de accidentes.</div>
+                </div>
+            </div>
+            <div class="burbuja-flip-container">
+                <div class="burbuja-flip-card">
+                    <div class="burbuja-face burbuja-front"><span class="porcentaje-num">20%</span><span>Acceso Fácil</span></div>
+                    <div class="burbuja-face burbuja-back">Una playa sin cobertura o acceso a pie dificulta las tareas de salvamento.</div>
+                </div>
+            </div>
+            <div class="burbuja-flip-container">
+                <div class="burbuja-flip-card">
+                    <div class="burbuja-face burbuja-front"><span class="porcentaje-num">5%</span><span>Cerca Hospital</span></div>
+                    <div class="burbuja-face burbuja-back">Un centro hospitalario cerca puede ser crucial en caso de accidente.</div>
+                </div>
+            </div>
+            <div class="burbuja-flip-container">
+                <div class="burbuja-flip-card">
+                    <div class="burbuja-face burbuja-front"><span class="porcentaje-num">5%</span><span>Carácter Urbano</span></div>
+                    <div class="burbuja-face burbuja-back">Si no estás solo puedes recibir ayuda de otros bañistas o transeúntes.</div>
+                </div>
+            </div>
+            <div class="burbuja-flip-container">
+                <div class="burbuja-flip-card">
+                    <div class="burbuja-face burbuja-front"><span class="porcentaje-num">5%</span><span>Longitud</span></div>
+                    <div class="burbuja-face burbuja-back">A mayor tamaño menor vigilancia.</div>
+                </div>
+            </div>
+            <div class="burbuja-flip-container">
+                <div class="burbuja-flip-card">
+                    <div class="burbuja-face burbuja-front"><span class="porcentaje-num">5%</span><span>Anchura</span></div>
+                    <div class="burbuja-face burbuja-back">A mayor tamaño menor vigilancia.</div>
+                </div>
+            </div>
+        </div>
+
+        <div id="mapa-seg" class="mapa-plotly revelar delay-1"></div>
+    </div>
+
+    <div class="seccion-espaciada revelar">
+        <div class="pregunta-destacada-titulo">¿Qué isla es más segura en promedio?</div>
+        
+        <div class="bloque-grafico-solo espacio-narrativo-medio">
+            <div id="bar-seg-medias" class="grafica-grande"></div>
+        </div>
+        
+        <div class="contenedor-bloques-anotaciones revelar">
+            <div class="nota-flotante-borde izquierda">
+                <b>Curiosidad:</b> <b>El Hierro </b>presenta la <b>mayor tasa media</b> de seguridad. Al <strong>no estar registradas pequeñas zonas de baño</strong> a las que acuden principalmente locales al ser zonas peligrosas o poco concurridas.
+            </div>
+            <div class="nota-flotante-borde right">
+                <b>Efecto geográfico:</b> Gran Canaria, aún siendo <b>isla capitalina</b>, tiene un promedio ligeramente inferior debido a su extenso litoral, que combina <b>grandes playas hoteleras</b> con decenas de <b>pequeños tramos costeros rústicos</b> en el norte sin equipos fijos de salvamento.
+            </div>
+        </div>
+    </div>
+
+    <div class="seccion-espaciada revelar" id="trigger-ranking-seguridad">
+        <h2 class="seccion-titulo">Las playas más seguras y los puntos de precaución</h2>
+        <p class="seccion-texto-desc" style="margin-bottom: 30px;">Comparativa entre las playas con mayor cobertura y aquellas que registran los índices de seguridad más bajos:</p>
+        
+        <div class="bloques-rankings-emparejados">
+            <div class="columna-ranking">
+                <h3>Las 3 playas más seguras</h3>
+                <div class="ranking-secuencial-container" id="contenedor-top3-seguras"></div>
+            </div>
+            <div class="columna-ranking">
+                <h3>Las 3 playas menos seguras</h3>
+                <div class="ranking-secuencial-container" id="contenedor-bottom3-seguras"></div>
+            </div>
+        </div>
+    </div>
+
+</div>
+
+<div class="bloque-seccion-completo-amarillo revelar" id="trigger-ranking-paradisiaque">
+    <div class="bloque-interno-centrado">
+        <h2 class="seccion-titulo">¿Cuáles son las más paradisíacas?</h2>
+        <p class="seccion-texto-desc"> Las islas se caracterizan en parte por su calma y paisajes naturales sin igual. Si quieres encontrar rincones sin tener que viajar a otro lado del mundo, como Maldivas o Seychelles, aquí podrás encontrar las playas más similares tomando un <b>Índice de Paraíso</b>, para el cual hemos tomado variables con las principales características de estas playas:</p>
+        
+        <div class="contenedor-pesos-variables revelar delay-1">
+            <div class="burbuja-flip-container">
+                <div class="burbuja-flip-card">
+                    <div class="burbuja-face burbuja-front"><span class="porcentaje-num">30%</span><span>Baja Ocupación</span></div>
+                    <div class="burbuja-face burbuja-back">Una playa que no esté masificada para estar tranquilo.</div>
+                </div>
+            </div>
+            <div class="burbuja-flip-container">
+                <div class="burbuja-flip-card">
+                    <div class="burbuja-face burbuja-front"><span class="porcentaje-num">25%</span><span>Mar Seguro</span></div>
+                    <div class="burbuja-face burbuja-back">Aguas tranquilas y cristalinas.</div>
+                </div>
+            </div>
+            <div class="burbuja-flip-container">
+                <div class="burbuja-flip-card">
+                    <div class="burbuja-face burbuja-front"><span class="porcentaje-num">25%</span><span>Entorno Virgen</span></div>
+                    <div class="burbuja-face burbuja-back">Una playa alejada del ruido y turismo en plena naturaleza.</div>
+                </div>
+            </div>
+            <div class="burbuja-flip-container">
+                <div class="burbuja-flip-card">
+                    <div class="burbuja-face burbuja-front"><span class="porcentaje-num">10%</span><span>Es de Arena</span></div>
+                    <div class="burbuja-face burbuja-back">Un paraíso debe contar con arena, ya sea fina blanca o negra volcánica.</div>
+                </div>
+            </div>
+            <div class="burbuja-flip-container">
+                <div class="burbuja-flip-card">
+                    <div class="burbuja-face burbuja-front"><span class="porcentaje-num">5%</span><span>Longitud</span></div>
+                    <div class="burbuja-face burbuja-back">Una mayor extensión para no perder privacidad.</div>
+                </div>
+            </div>
+            <div class="burbuja-flip-container">
+                <div class="burbuja-flip-card">
+                    <div class="burbuja-face burbuja-front"><span class="porcentaje-num">5%</span><span>Anchura</span></div>
+                    <div class="burbuja-face burbuja-back">Una mayor extensión para no perder privacidad.</div>
+                </div>
+            </div>
+        </div>
+
+        <div id="mapa-par" class="mapa-plotly revelar delay-1"></div>
+
+        <div class="seccion-espaciada revelar">
+            <div class="pregunta-destacada-titulo" style="margin-bottom: 20px;">¿Qué islas ofrecen los entornos más idílicos?</div>
+            
+            <div class="bloque-grafico-solo espacio-narrativo-medio">
+                <div id="bar-par" class="grafica-grande"></div>
+            </div>
+            
+            <div class="contenedor-bloques-anotaciones revelar">
+                <div class="nota-flotante-borde para-izq">
+                    <b>Predominio de la baja ocupación:</b> La Gomera y Fuerteventura lideran el índice paradisíaco gracias a sus <b>zonas de arena negra entre acantilados</b> y <b>largos kilómetros de costa y dunas protegidas</b> respectivamente, donde la densidad humana se mantiene bajo mínimos.
+                </div>
+            </div>
+        </div>
+
+        <div class="seccion-espaciada revelar">
+            <h3 style="font-size: 1.5em; font-weight: 600; color: #0d47a1; margin-bottom: 25px; text-align: center;">Los rincones más paradisíacos del archipiélago</h3>
+            <div class="ranking-secuencial-container" id="contenedor-top3-paradisicas" style="max-width: 850px; margin: 0 auto;"></div>
+        </div>
+    </div>
+</div>
+
+<div class="contenido-principal">
+    
+    <div class="seccion-espaciada revelar">
+        <p style="font-size: 1.45em; color: #1565c0; margin-bottom: 65px; font-weight: 500; line-height: 1.8; text-align: center; max-width: 950px; margin-left: auto; margin-right: auto;">
+           Ya que cada isleño, turista o amante de las playas tiene gustos diferentes de playa, se han clasificado estas en 4 grandes grupos, para que aproveches tu visita a las islas al máximo o puedas elegir que isla visitar si vas en busca de un tipo específico. Los 4 grandes grupos son los siguientes:
+
+        <div class="grid-matriz-playas">
+            <div class="tarjeta-tipo-playa revelar" style="border-left-color: #3498db;">
+                <div class="contenedor-emotes" style="color: #3498db;">
+                    <i class="fa-solid fa-hotel"></i> <i class="fa-solid fa-umbrella-beach"></i>
+                </div>
+                <h3>Urbanas Turísticas con servicios</h3>
+                <p>Centros principales del litoral. Cuentan con un alto grado de urbanización, paseos marítimos llenos de vida, equipamientos completos de auxilio y superficies de arena cómoda. Máximo confort.</p>
+            </div>
+
+            <div class="tarjeta-tipo-playa revelar" style="border-left-color: #2ecc71;">
+                <div class="contenedor-emotes" style="color: #2ecc71;">
+                    <i class="fa-solid fa-house-user"></i> <i class="fa-solid fa-life-ring"></i>
+                </div>
+                <h3>Semiurbanas con servicios</h3>
+                <p>El punto intermedio ideal. Playas ubicadas cerca de núcleos residenciales locales que disfrutan de mantenimiento, accesos cómodos y servicios básicos de seguridad, pero sin grandes avenidas comerciales a sus espaldas.</p>
+            </div>
+
+            <div class="tarjeta-tipo-playa revelar" style="border-left-color: #9b59b6;">
+                <div class="contenedor-emotes" style="color: #9b59b6;">
+                    <i class="fa-solid fa-compass"></i> <i class="fa-solid fa-leaf"></i>
+                </div>
+                <h3>Rincones de arena y tranquilidad</h3>
+                <p>Auténticos oasis de paz lejos de la actividad humana. Playas rústicas y naturales caracterizadas por su arena fina, baja afluencia, oleajes amables y una atmósfera relajante idónea para desconectar por completo.</p>
+            </div>
+
+            <div class="tarjeta-tipo-playa revelar" style="border-left-color: #e67e22;">
+                <div class="contenedor-emotes" style="color: #e67e22;">
+                    <i class="fa-solid fa-volcano"></i> <i class="fa-solid fa-water"></i>
+                </div>
+                <h3>Litoral de mar abierto</h3>
+                <p>La fuerza pura del océano. Playas compuestas principalmente por roca, grava o bolos donde no abunda la arena. Suelen presentar oleajes dinámicos y un entorno puramente volcánico.</p>
+            </div>
+        </div>
+
+        <div class="seccion-espaciada revelar">
+            <div class="pregunta-destacada-titulo" style="font-size: 1.7em; font-weight: 600; line-height: 1.5; margin-bottom: 10px;">
+                ¿En qué isla puedes visitar más playas según tus preferencias?
+            </div>
+            
+            <div class="bloque-grafico-solo espacio-narrativo-medio">
+                <div id="bar-tipo-playas-isla" class="grafica-grande"></div>
+            </div>
+
+            <div class="contenedor-bloques-anotaciones revelar" style="justify-content: center;">
+                <div class="nota-flotante-borde izquierda" style="max-width: 750px; flex: 1;">
+                    Tenerife y Gran Canaria concentran un gran volumen de playas <b>Urbanas Turísticas</b> y <b>Semiurbanas</b> debido a su densidad demográfica e infraestructura de ocio. Si buscas paseos marítimos y servicios a pie de playa, el modelo confirma que las capitalinas son tu opción principal.
+                </div>
+            </div>
+        </div>
+
+        <div class="seccion-espaciada revelar">
+            <p style="font-size: 1.35em; color: #333; font-weight: 500; text-align: center; margin-bottom: 45px;">
+                Y si aún estás indeciso explora dónde se encuentran y cómo se distribuyen dentro de cada isla:
+            </p>
+            
+            <div id="mapa-clus" class="mapa-plotly"></div>
+
+            <div class="contenedor-bloques-anotaciones revelar" style="margin-top: 50px;">
+                <div class="nota-flotante-borde izquierda" style="max-width: 100%; flex: 1;">
+                    Este mapa desvela patrones territoriales muy claros. El <b>Litoral de mar abierto</b> rodea casi por completo la periferia de las islas debido a su posición en el océano. Las <b>Urbanas Turísticas con Servicios</b> se concentran en las zonas capitalinas de cada isla. Además, los <b>Rincones de arena y tranquilidad</b> se pueden encontrar principalmente en las zonas sureste y suroeste del archipiélago.
+                </div>
+            </div>
+        </div>
+    </div>
+
+<div class="pie-credits">
+    Fuente de los datos: Ministerio para la Transición Ecológica y el Reto Demográfico | 
+    Desarrollo visual asistido mediante IA, 2026. <br>
+    <strong>Código y visualización distribuidos bajo Licencia Libre MIT.</strong>
+</div>
+
+</div>
+
+<script>
+// ---- CONTROL DE REVELADO EXTREMO PARA STORYTELLING ----
+const observador = new IntersectionObserver((entradas) => {
+    entradas.forEach(e => { 
+        if (e.isIntersecting) {
+            e.target.classList.add('visible'); 
+        }
+    });
+}, { 
+    threshold: 0.02, // Se activa apenas asoma el elemento para un degradado suave
+    rootMargin: "0px 0px -40px 0px" 
+});
+
+document.querySelectorAll('.revelar').forEach(s => observador.observe(s));
+
+const obsRankingSeg = new IntersectionObserver((entradas) => {
+    entradas.forEach(e => {
+        if (e.isIntersecting) {
+            e.target.querySelectorAll('.tarjeta-ranking-pro').forEach((t, i) => {
+                setTimeout(() => { t.classList.add('visible-card'); }, i * 200);
+            });
+        }
+    });
+}, { threshold: 0.1 });
+
+const obsRankingPar = new IntersectionObserver((entradas) => {
+    entradas.forEach(e => {
+        if (e.isIntersecting) {
+            e.target.querySelectorAll('.tarjeta-ranking-pro').forEach((t, i) => {
+                setTimeout(() => { t.classList.add('visible-card'); }, i * 200);
+            });
+        }
+    });
+}, { threshold: 0.1 });
+
+// ---- CONFIGURACIONES ----
+const CLUSTER_NOMBRES = { 
+    0: 'Urbanas Turísticas con servicios', 
+    1: 'Semiurbanas con servicios', 
+    2: 'Rincones de arena y tranquilidad', 
+    3: 'Litoral de mar abierto' 
+};
+
+// RETORNO A LOS COLORES ORIGINALES E INICIALES DE LOS CLÚSTERES (PASTEL / ESTÁNDAR LIMPIOS)
+const CLUSTER_COLORES = { 
+    0: '#3498db', // Azul Claro original
+    1: '#2ecc71', // Verde Esmeralda original
+    2: '#9b59b6', // Púrpura Amatista original
+    3: '#e67e22'  // Naranja original
+};
+
+const CFG = { responsive: true, displayModeBar: false };
+let todosLosDatos = [];
+let islaSeleccionadaActual = "";
+
+// ---- LEAFLET MAP ----
+const mapaGeneral = L.map('mapa-general', { minZoom: 7 }).setView([28.3, -15.8], 7);
+L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { attribution: '© OpenStreetMap' }).addTo(mapaGeneral);
+let marcadores = L.layerGroup().addTo(mapaGeneral);
+
+function aplicarFiltroIsla(isla) {
+    if (islaSeleccionadaActual === isla && isla !== "") {
+        isla = ""; 
+    }
+    islaSeleccionadaActual = isla;
+    document.getElementById('filtro-isla').value = isla;
+    
+    d3.selectAll('.isla-item-dinamico').classed('activo', false);
+    d3.selectAll('.isla-item-dinamico').each(function() {
+        const txt = d3.select(this).text().split(' (')[0].trim();
+        if(txt === isla) d3.select(this).classed('activo', true);
+    });
+
+    const filtrado = isla ? todosLosDatos.filter(d => d.Isla === isla) : todosLosDatos;
+    dibujarMapa(filtrado);
+    
+    if (isla && filtrado.length) {
+        mapaGeneral.setView([filtrado[0].lat, filtrado[0].lon], 9);
+    } else {
+        mapaGeneral.setView([28.3, -15.8], 7);
+    }
+}
+
+function dibujarMapa(datos) {
+    marcadores.clearLayers();
+    datos.forEach(d => {
+        L.circleMarker([d.lat, d.lon], { radius: 5, fillColor: '#0d47a1', color: '#fff', weight: 1, fillOpacity: 0.85 }).addTo(marcadores)
+          .bindTooltip(`<b>${d.Nombre}</b><br>${d.municipio}`, { sticky: true });
+    });
+}
+
+document.getElementById('filtro-isla').addEventListener('change', function() {
+    aplicarFiltroIsla(this.value);
+});
+
+// ---- PROCESAMIENTO PRINCIPAL ----
+d3.csv('Playas_canarias_limpio.csv').then(function(raw) {
+    todosLosDatos = raw.map(d => {
+        let clusRaw = d['Cluster_ID'] !== undefined ? d['Cluster_ID'] : d['Cluster_id'];
+        let idClus = parseInt(clusRaw);
+        
+        return {
+            Nombre:       d['Nombre'],
+            Isla:         d['Isla'],
+            municipio:    d['Término_M'],
+            Composici:    d['Composici'] || 'Arena / Roca',
+            Grado_ocup:   d['Grado_ocup'] || 'Baja',
+            Condicione:   d['Condicione'] || 'Aguas tranquilas',
+            lat:          parseFloat(d['Coordena_5']),
+            lon:          parseFloat(d['Coordena_4']),
+            seg:          parseFloat(d['Seguridad']),
+            parad:        parseFloat(d['Paradisiaca']) ,   
+            clusterID:    idClus,
+            clusterNombre: CLUSTER_NOMBRES[idClus] || 'Desconocido'
+        };
+    }).filter(d => !isNaN(d.lat) && !isNaN(d.lon) && !isNaN(d.seg) && !isNaN(d.clusterID));
+
+    if(!todosLosDatos.length) return;
+
+    dibujarMapa(todosLosDatos);
+
+    // Lista Dinámica de Islas
+    const conteoPorIsla = d3.rollups(todosLosDatos, v => v.length, d => d.Isla).sort((a,b) => b[1] - a[1]);
+    const maxPlayas = d3.max(conteoPorIsla, d => d[1]) || 1;
+    const minPlayas = d3.min(conteoPorIsla, d => d[1]) || 1;
+    const escalaFuente = d3.scaleLinear().domain([minPlayas, maxPlayas]).range([1.1, 2.3]);
+    
+    const contenedorLista = d3.select('#lista-islas-conteo');
+    conteoPorIsla.forEach(d => {
+        contenedorLista.append('div')
+            .attr('class', 'isla-item-dinamico')
+            .style('font-size', `${escalaFuente(d[1])}em`)
+            .html(`${d[0]} <span>(${d[1]} playas)</span>`)
+            .on('click', () => aplicarFiltroIsla(d[0]));
+    });
+
+    // 1. RENDERS DE SEGURIDAD
+    Plotly.newPlot('mapa-seg', [{
+        type: 'scattermapbox', lat: todosLosDatos.map(d => d.lat), lon: todosLosDatos.map(d => d.lon), mode: 'markers',
+        marker: { size: 9, color: todosLosDatos.map(d => d.seg), colorscale: [['0','#ef4444'], ['0.5','#f1c40f'], ['1','#22c55e']], colorbar: { title: 'Seguridad', thickness: 14 }, opacity: 0.85 },
+        text: todosLosDatos.map(d => `<b>${d.Nombre}</b><br>Seguridad: ${d.seg.toFixed(2)}`), hoverinfo: 'text'
+    }], {
+        mapbox: { style: 'open-street-map', center: { lat: 28.3, lon: -15.5 }, zoom: 6.5 },
+        margin: { t: 0, b: 0, l: 0, r: 0 }
+    }, { responsive: true, displayModeBar: false, scrollZoom: true });
+
+    const segIsla = d3.rollups(todosLosDatos, v => d3.mean(v, d => d.seg), d => d.Isla).sort((a, b) => b[1] - a[1]);
+    Plotly.newPlot('bar-seg-medias', [{
+        type: 'bar', x: segIsla.map(d => d[0]), y: segIsla.map(d => d[1]), text: segIsla.map(d => d[1].toFixed(3)), textposition: 'outside',
+        hoverinfo: 'none', marker: { color: '#0d47a1' }
+    }], {
+        xaxis: { automargin: true, tickfont: { size: 13, font: { family: 'Montserrat' } } },
+        yaxis: { range: [0, 1.15], title: { text: 'Índice de Seguridad Medio', font: { size: 17, family: 'Montserrat' }, standoff: 15 } },
+        margin: { l: 70, r: 30, t: 25, b: 35 }, paper_bgcolor: 'rgba(0,0,0,0)', plot_bgcolor: 'rgba(0,0,0,0)'
+    }, CFG);
+
+    const ordenadasSeguridad = [...todosLosDatos].sort((a, b) => b.seg - a.seg);
+    const contTopSeg = d3.select('#contenedor-top3-seguras');
+    ordenadasSeguridad.slice(0, 3).forEach((p, idx) => {
+        contTopSeg.append('div').attr('class', 'tarjeta-ranking-pro')
+            .html(`<div class="puesto-badge">${idx + 1}</div>
+                   <div class="info-playa-bloque">
+                       <div class="nombre-playa">${p.Nombre}</div>
+                       <div class="detalles-playa">Isla: <strong>${p.Isla}</strong> | Oleaje: <strong>${p.Condicione}</strong></div>
+                   </div>
+                   <div class="badge-indice-seguridad">Índice: <strong>${p.seg.toFixed(3)}</strong></div>`);
+    });
+
+    const contBotSeg = d3.select('#contenedor-bottom3-seguras');
+    [...ordenadasSeguridad].reverse().slice(0, 3).forEach((p, idx) => {
+        contBotSeg.append('div').attr('class', 'tarjeta-ranking-pro')
+            .html(`<div class="puesto-badge alerta">${idx + 1}</div>
+                   <div class="info-playa-bloque">
+                       <div class="nombre-playa">${p.Nombre}</div>
+                       <div class="detalles-playa">Isla: <strong>${p.Isla}</strong> | Oleaje: <strong>${p.Condicione}</strong></div>
+                   </div>
+                   <div class="badge-indice-seguridad">Índice: <strong class="alerta-txt">${p.seg.toFixed(3)}</strong></div>`);
+    });
+    obsRankingSeg.observe(document.getElementById('trigger-ranking-seguridad'));
+
+
+    // 2. RENDERS PARADISÍACA
+    Plotly.newPlot('mapa-par', [{
+        type: 'scattermapbox', lat: todosLosDatos.map(d => d.lat), lon: todosLosDatos.map(d => d.lon), mode: 'markers',
+        marker: { size: 9, color: todosLosDatos.map(d => d.parad), colorscale: [['0', '#1e3a8a'], ['0.5', '#10b981'], ['1', '#f59e0b']], colorbar: { title: 'Paradisíaca', thickness: 14 }, opacity: 0.9 },
+        text: todosLosDatos.map(d => `<b>${d.Nombre}</b><br>Índice Paradisíaco: ${d.parad.toFixed(2)}`), hoverinfo: 'text'
+    }], {
+        mapbox: { style: 'open-street-map', center: { lat: 28.3, lon: -15.5 }, zoom: 6.5 },
+        margin: { t: 0, b: 0, l: 0, r: 0 }
+    }, { responsive: true, displayModeBar: false, scrollZoom: true });
+
+    const parIsla = d3.rollups(todosLosDatos, v => d3.mean(v, d => d.parad), d => d.Isla).sort((a, b) => b[1] - a[1]);
+    Plotly.newPlot('bar-par', [{
+        type: 'bar', x: parIsla.map(d => d[0]), y: parIsla.map(d => d[1]), text: parIsla.map(d => d[1].toFixed(3)), textposition: 'outside',
+        hoverinfo: 'none', marker: { color: '#2ecc71' }
+    }], {
+        xaxis: { automargin: true, tickfont: { size: 11, font: { family: 'Montserrat' } } },
+        yaxis: { range: [0, 1.15], title: { text: 'Índice Paradisíaco Medio', font: { size: 13, family: 'Montserrat' }, standoff: 15 } },
+        margin: { l: 70, r: 30, t: 25, b: 35 }, paper_bgcolor: 'rgba(0,0,0,0)', plot_bgcolor: 'rgba(0,0,0,0)'
+    }, CFG);
+
+    const top3Paradisicas = [...todosLosDatos].sort((a, b) => b.parad - a.parad).slice(0, 3);
+    const contTopPar = d3.select('#contenedor-top3-paradisicas');
+    top3Paradisicas.forEach((p, idx) => {
+        contTopPar.append('div').attr('class', 'tarjeta-ranking-pro')
+            .html(`<div class="puesto-badge">${idx + 1}</div>
+                   <div class="info-playa-bloque">
+                       <div class="nombre-playa">${p.Nombre}</div>
+                       <div class="detalles-playa">Isla: <strong>${p.Isla}</strong> | Ocupación: <strong>${p.Grado_ocup}</strong> | Superficie: <strong>${p.Composici}</strong></div>
+                   </div>
+                   <div class="badge-indice-seguridad">Índice: <strong class="destacado-txt">${p.parad.toFixed(3)}</strong></div>`);
+    });
+    obsRankingPar.observe(document.getElementById('trigger-ranking-paradisiaque'));
+
+
+    // 3. DISTRIBUCIÓN APILADA (CON LOS COLORES ORIGINALES RESTAURADOS)
+    const islasOrdenadasFijas = ['Tenerife', 'Gran Canaria', 'Fuerteventura', 'Lanzarote', 'La Palma', 'La Gomera', 'El Hierro'];
+    const matrizDistribucion = {};
+    islasOrdenadasFijas.forEach(isla => {
+        matrizDistribucion[isla] = { 'Urbanas Turísticas con servicios': 0, 'Semiurbanas con servicios': 0, 'Rincones de arena y tranquilidad': 0, 'Litoral de mar abierto': 0 };
+    });
+    
+    todosLosDatos.forEach(d => {
+        if (matrizDistribucion[d.Isla] && d.clusterNombre in matrizDistribucion[d.Isla]) {
+            matrizDistribucion[d.Isla][d.clusterNombre]++;
+        }
+    });
+
+    const trazasBarrasApiladas = Object.entries(CLUSTER_NOMBRES).map(([id, nombreTipo]) => {
+        return {
+            x: islasOrdenadasFijas, y: islasOrdenadasFijas.map(isla => matrizDistribucion[isla][nombreTipo]),
+            name: nombreTipo, type: 'bar', marker: { color: CLUSTER_COLORES[id] }
+        };
+    });
+
+    Plotly.newPlot('bar-tipo-playas-isla', trazasBarrasApiladas, {
+        barmode: 'stack',
+        xaxis: { automargin: true, tickfont: { font: { family: 'Montserrat', size: 11 } } },
+        yaxis: { title: { text: 'Número Total de Playas', font: { family: 'Montserrat', size: 13 } } },
+        legend: { orientation: 'h', x: 0.05, y: -0.25 },
+        margin: { l: 60, r: 30, t: 20, b: 60 }, paper_bgcolor: 'rgba(0,0,0,0)', plot_bgcolor: 'rgba(0,0,0,0)'
+    }, CFG);
+
+
+    // 4. MAPA DE CLUSTERING (CON LOS COLORES ORIGINALES)
+    Object.entries(CLUSTER_NOMBRES).forEach(([id, nombre]) => {
+        d3.select('#cluster-leyenda')
+          .append('div')
+          .style('padding', '8px 16px')
+          .style('border-radius', '20px')
+          .style('font-size','0.85em')
+          .style('font-weight','700')
+          .style('background', '#ffffff')
+          .style('border', `2px solid ${CLUSTER_COLORES[id]}`)
+          .style('color', CLUSTER_COLORES[id])
+          .text(nombre);
+    });
+
+    const trazasClusters = Object.entries(CLUSTER_NOMBRES).map(([id, nombre]) => {
+        const pts = todosLosDatos.filter(d => d.clusterID === parseInt(id));
+        return { 
+            type: 'scattermapbox', lat: pts.map(d => d.lat), lon: pts.map(d => d.lon), mode: 'markers', 
+            name: nombre, marker: { size: 9, color: CLUSTER_COLORES[id] }, 
+            text: pts.map(d => `<b>${d.Nombre}</b><br>Tipo: ${nombre}<br>Suelo: ${d.Composici}<br>Oleaje: ${d.Condicione}`), 
+            hoverinfo: 'text' 
+        };
+    });
+    Plotly.newPlot('mapa-clus', trazasClusters, { mapbox: { style: 'open-street-map', center: { lat: 28.3, lon: -15.5 }, zoom: 6.5 }, margin: { t: 0, b: 0, l: 0, r: 0 } }, CFG);
+
+}).catch(err => { console.error('Error cargando los datos:', err); });
+</script>
+</body>
+</html>
